@@ -14,7 +14,9 @@ app.use(
   cors({
     origin: [
       "https://client-i1vo1qjv7-fugboizzs-projects.vercel.app",
+      "https://build-beta-nine.vercel.app", // Thêm domain này
       "http://localhost:3000",
+      "*", // Hoặc sử dụng * để cho phép tất cả domain (không nên dùng trong production)
     ],
   })
 );
@@ -194,10 +196,9 @@ const handleApiError = (err, req, res, next) => {
 
 app.use(handleApiError);
 
-  app.listen(PORT, () => {
-    console.log(`Server đang lắng nghe trên cổng ${PORT}`);
-    console.log(`Truy cập tại: http://localhost:${PORT}`);
-  });
-
+app.listen(PORT, () => {
+  console.log(`Server đang lắng nghe trên cổng ${PORT}`);
+  console.log(`Truy cập tại: http://localhost:${PORT}`);
+});
 
 module.exports = app;
