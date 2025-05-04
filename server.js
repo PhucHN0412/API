@@ -194,11 +194,10 @@ const handleApiError = (err, req, res, next) => {
 
 app.use(handleApiError);
 
-if (process.env.PORT !== "production") {
   app.listen(PORT, () => {
     console.log(`Server đang lắng nghe trên cổng ${PORT}`);
     console.log(`Truy cập tại: http://localhost:${PORT}`);
   });
-}
+
 
 module.exports = app;
