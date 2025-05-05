@@ -2,7 +2,7 @@ function filterCheckinsByDay(data) {
   try {
     if (!data || !data.data || !Array.isArray(data.data)) {
       console.error("Dữ liệu đầu vào không hợp lệ!");
-      return {};
+      return [];
     }
 
     const validCheckins = data.data.filter(
@@ -13,17 +13,14 @@ function filterCheckinsByDay(data) {
         item.personName !== ""
     );
 
-    const checkinsByDay = {};
+    // Tạo một đối tượng tạm để theo dõi lần check-in đầu tiên của mỗi người theo ngày
+    const earliestCheckinsByPerson = {};
 
     validCheckins.forEach((checkin) => {
       const date = checkin.date;
+      const personKey = `${date}_${checkin.personID}`;
 
-      const timestamp = new Date(checkin.checkinTime);
-      const hours = timestamp.getHours().toString().padStart(2, "0");
-      const minutes = timestamp.getMinutes().toString().padStart(2, "0");
-      const seconds = timestamp.getSeconds().toString().padStart(2, "0");
-      const formattedTime = `${hours}:${minutes}:${seconds}`;
-
+      // Format thông tin người check-in
       const personInfo = {
         personName: checkin.personName !== undefined ? checkin.personName : "",
         personID: checkin.personID,
@@ -39,42 +36,34 @@ function filterCheckinsByDay(data) {
         deviceName: checkin.deviceName !== undefined ? checkin.deviceName : "",
         date: checkin.date,
         timestamp: checkin.checkinTime,
+        formattedTime: formatTimestamp(checkin.checkinTime),
       };
-      if (!checkinsByDay[date]) {
-        checkinsByDay[date] = [];
-      }
-      const existingPersonIndex = checkinsByDay[date].findIndex(
-        (item) => item.personID === personInfo.personID
-      );
-      if (existingPersonIndex === -1) {
-        checkinsByDay[date].push(personInfo);
-      } else {
-        const existingTimestamp =
-          checkinsByDay[date][existingPersonIndex].timestamp;
-        if (checkin.checkinTime < existingTimestamp) {
-          checkinsByDay[date][existingPersonIndex] = personInfo;
-        }
+
+      if (
+        !earliestCheckinsByPerson[personKey] ||
+        checkin.checkinTime < earliestCheckinsByPerson[personKey].timestamp
+      ) {
+        earliestCheckinsByPerson[personKey] = personInfo;
       }
     });
 
-    // Sắp xếp người check-in theo thời gian tăng dần trong mỗi ngày
-    Object.keys(checkinsByDay).forEach((date) => {
-      checkinsByDay[date].sort((a, b) => a.timestamp - b.timestamp);
-    });
+    const result = Object.values(earliestCheckinsByPerson).sort(
+      (a, b) => a.timestamp - b.timestamp
+    );
 
-    // Sắp xếp các ngày theo thứ tự giảm dần (mới nhất trước)
-    const sortedResult = {};
-    Object.keys(checkinsByDay)
-      .sort((a, b) => new Date(b) - new Date(a))
-      .forEach((date) => {
-        sortedResult[date] = checkinsByDay[date];
-      });
-
-    return sortedResult;
+    return result;
   } catch (error) {
     console.error("Lỗi khi xử lý dữ liệu:", error);
-    return {};
+    return [];
   }
+}
+
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const seconds = date.getSeconds().toString().padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
 }
 
 require("dotenv").config();
@@ -157,6 +146,8 @@ async function getPeopleListByMethod(placeId, dateFrom, dateTo, devices) {
       `Không lấy được dữ liệu cho địa điểm ${placeId} do lỗi request.`
     );
   }
+
+  // Trả về mảng JSON thay vì đối tượng phân theo ngày
   return filterCheckinsByDay({ data: rawCheckinData });
 }
 
