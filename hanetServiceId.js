@@ -86,69 +86,79 @@ async function getPeopleListByMethod(placeId, dateFrom, dateTo, devices) {
   if (!accessToken) {
     throw new Error("Không lấy được Access Token hợp lệ.");
   }
-
-  const apiUrl = `${HANET_API_BASE_URL}/person/getCheckinByPlaceIdInTimestamp`;
-  const requestData = {
-    token: accessToken,
-    placeID: placeId,
-    from: dateFrom,
-    to: dateTo,
-    ...(devices && { devices: devices }),
-  };
-  const config = {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    timeout: 15000,
-  };
-
   let rawCheckinData = [];
+  for (let index = 1; index <= 100000; index++) {
+    const apiUrl = `${HANET_API_BASE_URL}/person/getCheckinByPlaceIdInTimestamp`;
+    const requestData = {
+      token: accessToken,
+      placeID: placeId,
+      from: dateFrom,
+      to: dateTo,
+      ...(devices && { devices: devices }),
+      size: 500,
+      page: index,
+    };
+    const config = {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      timeout: 15000,
+    };
 
-  try {
-    console.log(`Đang gọi HANET API cho placeID=${placeId}...`);
-    const response = await axios.post(
-      apiUrl,
-      qs.stringify(requestData),
-      config
-    );
-    if (response.data && typeof response.data.returnCode !== "undefined") {
-      if (response.data.returnCode === 1 || response.data.returnCode === 0) {
-        console.log(`Gọi HANET API thành công cho placeID=${placeId}.`);
-        if (Array.isArray(response.data.data)) {
-          rawCheckinData = response.data.data;
-          console.log(`Nhận được ${rawCheckinData.length} bản ghi check-in.`);
+    try {
+      console.log(`Đang gọi HANET API cho placeID=${placeId}...`);
+      const response = await axios.post(
+        apiUrl,
+        qs.stringify(requestData),
+        config
+      );
+      if (response.data && typeof response.data.returnCode !== "undefined") {
+        if (response.data.returnCode === 1 || response.data.returnCode === 0) {
+          console.log(`Gọi HANET API thành công cho placeID=${placeId}.`);
+          if (Array.isArray(response.data.data)) {
+            if (response.data.data.length === 0) {
+              // Nếu trang không có dữ liệu, thoát vòng lặp
+              console.log(`Không còn dữ liệu ở trang ${index}, dừng truy vấn.`);
+              break;
+            }
+            rawCheckinData = [...rawCheckinData, ...response.data.data];
+            console.log(
+              `Đã nhận tổng cộng ${rawCheckinData.length} bản ghi check-in.`
+            );
+          } else {
+            console.warn(
+              `Dữ liệu trả về cho placeID ${placeId} không phải mảng hoặc không có.`
+            );
+            break;
+          }
         } else {
-          console.warn(
-            `Dữ liệu trả về cho placeID ${placeId} không phải mảng hoặc không có.`
+          console.error(
+            `Lỗi logic từ HANET cho placeID=${placeId}: Mã lỗi ${
+              response.data.returnCode
+            }, Thông điệp: ${response.data.returnMessage || "N/A"}`
           );
         }
       } else {
         console.error(
-          `Lỗi logic từ HANET cho placeID=${placeId}: Mã lỗi ${
-            response.data.returnCode
-          }, Thông điệp: ${response.data.returnMessage || "N/A"}`
+          `Response không hợp lệ từ HANET cho placeID=${placeId}:`,
+          response.data
         );
       }
-    } else {
-      console.error(
-        `Response không hợp lệ từ HANET cho placeID=${placeId}:`,
-        response.data
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        console.error(`Lỗi timeout khi gọi API cho placeID=${placeId}.`);
+      } else {
+        console.error(
+          `Lỗi mạng/request khi gọi ${apiUrl} cho placeID=${placeId}:`,
+          error.response?.data || error.message
+        );
+      }
+      console.warn(
+        `Không lấy được dữ liệu cho địa điểm ${placeId} do lỗi request.`
       );
     }
-  } catch (error) {
-    if (error.code === "ECONNABORTED") {
-      console.error(`Lỗi timeout khi gọi API cho placeID=${placeId}.`);
-    } else {
-      console.error(
-        `Lỗi mạng/request khi gọi ${apiUrl} cho placeID=${placeId}:`,
-        error.response?.data || error.message
-      );
-    }
-    console.warn(
-      `Không lấy được dữ liệu cho địa điểm ${placeId} do lỗi request.`
-    );
   }
 
-  // Trả về mảng JSON thay vì đối tượng phân theo ngày
   return filterCheckinsByDay({ data: rawCheckinData });
+  // Trả về mảng JSON thay vì đối tượng phân theo ngày
 }
 
 module.exports = {
