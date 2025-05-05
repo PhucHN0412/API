@@ -1,40 +1,7 @@
-// hanetService.js
 
-// ... (hàm filterUniqueCheckinsPerPersonDay giữ nguyên) ...
-function filterUniqueCheckinsPerPersonDay(data) {
-  const uniqueCheckins = [];
-  const seenCombinations = new Set();
-  if (!Array.isArray(data)) {
-    console.error("Dữ liệu đầu vào của filter không phải là mảng!");
-    return [];
-  }
-  for (const checkin of data) {
-    if (!checkin.personID || checkin.personID === "") {
-      continue;
-    }
-    const combinationKey = `${checkin.personID}_${checkin.date}`;
-    if (!seenCombinations.has(combinationKey)) {
-      seenCombinations.add(combinationKey);
-      const selectedData = {
-        personName: checkin.personName !== undefined ? checkin.personName : "",
-        personID: checkin.personID,
-        aliasID: checkin.aliasID !== undefined ? checkin.aliasID : "",
-        placeID: checkin.placeID !== undefined ? checkin.placeID : null,
-        title: checkin.title
-          ? typeof checkin.title === "string"
-            ? checkin.title.trim()
-            : "N/A"
-          : "Khách hàng",
-        type: checkin.type !== undefined ? checkin.type : null,
-        deviceID: checkin.deviceID !== undefined ? checkin.deviceID : "",
-        deviceName: checkin.deviceName !== undefined ? checkin.deviceName : "",
-        checkinTime:
-          checkin.checkinTime !== undefined ? checkin.checkinTime : null,
-      };
-      uniqueCheckins.push(selectedData);
-    }
-  }
-  return uniqueCheckins;
+
+function processCheckinData(jsonData) {
+  return filterCheckinsByDay(jsonData);
 }
 
 require("dotenv").config();
@@ -151,12 +118,10 @@ async function getPeopleListByPlace() {
 
   console.log(`Tổng số bản ghi thô từ API: ${allRawResults.length}`);
 
-  const filteredData = filterUniqueCheckinsPerPersonDay(allRawResults);
+  const filteredData = filterCheckinsByDay(allRawResults);
   console.log(`Số bản ghi sau khi lọc: ${filteredData.length}`);
-
   return filteredData;
 }
-
 module.exports = {
   getPeopleListByPlace,
 };

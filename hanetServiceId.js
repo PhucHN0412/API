@@ -1,17 +1,30 @@
-function filterValidUniqueCheckins(checkinData) {
-  if (!Array.isArray(checkinData)) {
-    console.error("Dữ liệu đầu vào không phải là một mảng!");
-    return [];
-  }
-  const validCheckins = checkinData.filter((checkin) => {
-    return checkin && checkin.personName && checkin.personID;
-  });
-  const uniqueCheckins = [];
-  const seenPersonIDs = new Set();
-  for (const checkin of validCheckins) {
-    if (!seenPersonIDs.has(checkin.personID)) {
-      seenPersonIDs.add(checkin.personID);
-      const selectedData = {
+function filterCheckinsByDay(data) {
+  try {
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      console.error("Dữ liệu đầu vào không hợp lệ!");
+      return {};
+    }
+
+    const validCheckins = data.data.filter(
+      (item) =>
+        item.personID &&
+        item.personID !== "" &&
+        item.personName &&
+        item.personName !== ""
+    );
+
+    const checkinsByDay = {};
+
+    validCheckins.forEach((checkin) => {
+      const date = checkin.date;
+
+      const timestamp = new Date(checkin.checkinTime);
+      const hours = timestamp.getHours().toString().padStart(2, "0");
+      const minutes = timestamp.getMinutes().toString().padStart(2, "0");
+      const seconds = timestamp.getSeconds().toString().padStart(2, "0");
+      const formattedTime = `${hours}:${minutes}:${seconds}`;
+
+      const personInfo = {
         personName: checkin.personName !== undefined ? checkin.personName : "",
         personID: checkin.personID,
         aliasID: checkin.aliasID !== undefined ? checkin.aliasID : "",
@@ -24,13 +37,44 @@ function filterValidUniqueCheckins(checkinData) {
         type: checkin.type !== undefined ? checkin.type : null,
         deviceID: checkin.deviceID !== undefined ? checkin.deviceID : "",
         deviceName: checkin.deviceName !== undefined ? checkin.deviceName : "",
-        checkinTime:
-          checkin.checkinTime !== undefined ? checkin.checkinTime : null,
+        date: checkin.date,
+        timestamp: checkin.checkinTime,
       };
-      uniqueCheckins.push(selectedData);
-    }
+      if (!checkinsByDay[date]) {
+        checkinsByDay[date] = [];
+      }
+      const existingPersonIndex = checkinsByDay[date].findIndex(
+        (item) => item.personID === personInfo.personID
+      );
+      if (existingPersonIndex === -1) {
+        checkinsByDay[date].push(personInfo);
+      } else {
+        const existingTimestamp =
+          checkinsByDay[date][existingPersonIndex].timestamp;
+        if (checkin.checkinTime < existingTimestamp) {
+          checkinsByDay[date][existingPersonIndex] = personInfo;
+        }
+      }
+    });
+
+    // Sắp xếp người check-in theo thời gian tăng dần trong mỗi ngày
+    Object.keys(checkinsByDay).forEach((date) => {
+      checkinsByDay[date].sort((a, b) => a.timestamp - b.timestamp);
+    });
+
+    // Sắp xếp các ngày theo thứ tự giảm dần (mới nhất trước)
+    const sortedResult = {};
+    Object.keys(checkinsByDay)
+      .sort((a, b) => new Date(b) - new Date(a))
+      .forEach((date) => {
+        sortedResult[date] = checkinsByDay[date];
+      });
+
+    return sortedResult;
+  } catch (error) {
+    console.error("Lỗi khi xử lý dữ liệu:", error);
+    return {};
   }
-  return uniqueCheckins;
 }
 
 require("dotenv").config();
@@ -113,7 +157,7 @@ async function getPeopleListByMethod(placeId, dateFrom, dateTo, devices) {
       `Không lấy được dữ liệu cho địa điểm ${placeId} do lỗi request.`
     );
   }
-  return filterValidUniqueCheckins(rawCheckinData);
+  return filterCheckinsByDay({ data: rawCheckinData });
 }
 
 module.exports = {
